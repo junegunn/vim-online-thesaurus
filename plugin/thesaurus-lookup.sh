@@ -31,6 +31,8 @@ fi
 
 "$DOWNLOAD" "$OPTIONS" "$OUTFILE" "$URL"
 
+trap "rm -f \"$OUTFILE\"" EXIT SIGINT SIGTERM
+
 if ! grep -q 'no thesaurus results' "$OUTFILE" && grep -q 'html' "$OUTFILE"; then
     awk -F'<|>|&quot;' '/synonym-description">/,/filter-[0-9]+/ {
         if (index($0, "txt\">"))
@@ -42,6 +44,5 @@ if ! grep -q 'no thesaurus results' "$OUTFILE" && grep -q 'html' "$OUTFILE"; the
     }' "$OUTFILE"
 else
     echo "The word \"${1}\" has not been found on thesaurus.com!"
+    exit 1
 fi
-
-rm "$OUTFILE"

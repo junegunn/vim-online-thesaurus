@@ -42,6 +42,15 @@ function! s:Lookup(word)
     let l:word = substitute(tolower(s:Trim(a:word)), '"', '', 'g')
     let l:word_fname = fnameescape(l:word)
 
+    echon "Requesting thesaurus.com to look up \"" . l:word . "\"..."
+    let data = system(s:path.' '.shellescape(l:word))
+    if v:shell_error
+      echohl WarningMsg
+      echon  "\r".substitute(data, '\n$', '', '')
+      echohl None
+      return
+    endif
+
     silent! let l:thesaurus_window = bufwinnr('^thesaurus: ')
     if l:thesaurus_window > -1
         exec l:thesaurus_window . "wincmd w"
@@ -53,8 +62,7 @@ function! s:Lookup(word)
     setlocal noswapfile nobuflisted nospell nowrap modifiable
     setlocal buftype=nofile bufhidden=hide
     1,$d
-    echo "Requesting thesaurus.com to look up \"" . l:word . "\"..."
-    exec ":silent 0r !" . s:path . " " . shellescape(l:word)
+    call append(0, split(data, "\n"))
     exec ":silent! g/\\vrelevant-\\d+/,/^$/!" . s:sort . " -t ' ' -k 1,1r -k 2,2"
     if has("win32")
         silent! %s/\r//g
@@ -64,7 +72,6 @@ function! s:Lookup(word)
     silent! g/^Synonyms/+;/^$/-2s/$\n/, /
     silent g/^Synonyms:/ normal! JVgq
     0
-    1d
     exec 'resize ' . (line('$') - 1)
     setlocal nomodifiable filetype=thesaurus
     nnoremap <silent> <buffer> q :q<CR>
