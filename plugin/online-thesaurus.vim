@@ -11,27 +11,35 @@ let g:loaded_online_thesaurus = 1
 let s:save_cpo = &cpo
 set cpo&vim
 let s:save_shell = &shell
-if has("win32")
-    let cpu_arch      = system('echo %PROCESSOR_ARCHITECTURE%')
-    let s:script_name = "\\thesaurus-lookup.sh"
-    if isdirectory('C:\\Program Files (x86)\\Git')
-        let &shell        = 'C:\\Program Files (x86)\\Git\\bin\\bash.exe'
-        let s:sort        = "C:\\Program Files (x86)\\Git\\bin\\sort.exe"
-    elseif isdirectory('C:\\Program Files\\Git')
-        let &shell        = 'C:\\Program Files\\Git\\bin\\bash.exe'
-        let s:sort        = "C:\\Program Files\\Git\\bin\\sort.exe"
-    else
-        echoerr 'vim-thesaurus: Cannot find git installation.'
-    endif
-else
-    let &shell        = '/bin/sh'
-    let s:script_name = "/thesaurus-lookup.sh"
-    silent let s:sort = system('if command -v /bin/sort > /dev/null; then'
-            \ . ' printf /bin/sort;'
-            \ . ' else printf sort; fi')
-endif
+let s:base = expand("<sfile>:p:h")
 
-let s:path = shellescape(expand("<sfile>:p:h") . s:script_name)
+function! s:env()
+    if exists('s:path')
+      return [s:path, s:sort]
+    endif
+
+    if has("win32")
+        let cpu_arch      = system('echo %PROCESSOR_ARCHITECTURE%')
+        let s:script_name = "\\thesaurus-lookup.sh"
+        if isdirectory('C:\\Program Files (x86)\\Git')
+            let &shell        = 'C:\\Program Files (x86)\\Git\\bin\\bash.exe'
+            let s:sort        = "C:\\Program Files (x86)\\Git\\bin\\sort.exe"
+        elseif isdirectory('C:\\Program Files\\Git')
+            let &shell        = 'C:\\Program Files\\Git\\bin\\bash.exe'
+            let s:sort        = "C:\\Program Files\\Git\\bin\\sort.exe"
+        else
+            echoerr 'vim-thesaurus: Cannot find git installation.'
+        endif
+    else
+        let &shell        = '/bin/sh'
+        let s:script_name = "/thesaurus-lookup.sh"
+        silent let s:sort = system('if command -v /bin/sort > /dev/null; then'
+                \ . ' printf /bin/sort;'
+                \ . ' else printf sort; fi')
+    endif
+    let s:path = shellescape(s:base . s:script_name)
+    return [s:path, s:sort]
+endfunction
 
 function! s:Trim(input_string)
     let l:str = substitute(a:input_string, '[\r\n]', '', '')
@@ -41,9 +49,10 @@ endfunction
 function! s:Lookup(word)
     let l:word = substitute(tolower(s:Trim(a:word)), '"', '', 'g')
     let l:word_fname = fnameescape(l:word)
+    let [path, sort] = s:env()
 
     echon "Requesting thesaurus.com to look up \"" . l:word . "\"..."
-    let data = system(s:path.' '.shellescape(l:word))
+    let data = system(path.' '.shellescape(l:word))
     if v:shell_error
       echohl WarningMsg
       echon  "\r".substitute(data, '\n$', '', '')
@@ -63,7 +72,7 @@ function! s:Lookup(word)
     setlocal buftype=nofile bufhidden=hide
     1,$d
     call append(0, split(data, "\n"))
-    exec ':silent! g/^relevant /,/^$/-!' . s:sort . " -t ' ' -k 2nr -k 3"
+    exec ':silent! g/^relevant /,/^$/-!' . sort . " -t ' ' -k 2nr -k 3"
     if has("win32")
         silent! %s/\r//g
         silent! normal! gg5dd
